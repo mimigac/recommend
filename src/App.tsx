@@ -1,26 +1,25 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { createBrowserHistory } from 'history'
+import { BrowserHistory } from 'history'
+import './App.css'
+import Recommend from 'Recommend'
 
-function App() {
+const defaultHistory = createBrowserHistory()
+
+const App: React.FC<{ history: BrowserHistory }> = ({
+  history = defaultHistory,
+}) => {
+  //historyの渡し方が正しいかわからない
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/recommend/:ids"
+          element={<Recommend history={history} />}
+        />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
-export default App;
+export default App
