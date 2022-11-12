@@ -8,6 +8,9 @@ import styled from 'styled-components'
 import { IconContext } from 'react-icons'
 import { AiFillCloseCircle } from 'react-icons/ai'
 import { BsFillArrowRightCircleFill } from 'react-icons/bs'
+import { useForm, SubmitHandler } from 'react-hook-form'
+import { getAuth, onAuthStateChanged } from 'firebase/auth'
+import { useMutation, gql } from '@apollo/client'
 // import RestaurantCardList from 'RestaurantCardList'
 
 interface Restaurant {
@@ -80,13 +83,30 @@ const CostStationRow = styled.div`
   justify-content: space-between;
 `
 
-// async function sha256(text :string) {
-//   const uint8 = new TextEncoder().encode(text);
-//   const digest = await crypto.subtle.digest("SHA-256", uint8);
-//   return Array.from(new Uint8Array(digest))
-//     .map((v) => v.toString(16).padStart(2, "0"))
-//     .join("");
-// }
+const STORE_RESTAURANT_QUERY = gql`
+  mutation createStoredRestaurant($restaurantId: String!, $userEmail: String!) {
+    createStoredRestaurant(
+      restaurantDetails: { restaurantId: $restaurantId, userEmail: $userEmail }
+    ) {
+      restaurantId
+      userEmail
+    }
+  }
+`
+
+const HAVE_BEEN_TO_RESTAURANT_QUERY = gql`
+  mutation createHaveBeenToRestaurant(
+    $restaurantId: String!
+    $userEmail: String!
+  ) {
+    createHaveBeenToRestaurant(
+      restaurantDetails: { restaurantId: $restaurantId, userEmail: $userEmail }
+    ) {
+      restaurantId
+      userEmail
+    }
+  }
+`
 
 const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
   const { ids } = useParams()
@@ -112,15 +132,24 @@ const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
     // return () => {};
   }, [])
 
-  if (loading) {
-    return <div>loading</div>
+  //form
+  type Inputs = {
+    restaurant_id: string
   }
-
-  if (error) {
-    return <div>error</div>
-  }
-
-  // const { register, handleSubmit, setValue } = useForm();
+  const { register, handleSubmit, setValue } = useForm<Inputs>()
+  const auth = getAuth()
+  let uid = ''
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      // User is signed in, see docs for a list of available properties
+      // https://firebase.google.com/docs/reference/js/firebase.User
+      uid = user.uid
+      // ...
+    } else {
+      // User is signed out
+      // ...
+    }
+  })
 
   const fetchRestaurants = async () => {
     const all_IDs = [ids, ...ID]
@@ -132,6 +161,11 @@ const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
     return data.data
   }
 
+  const [storeRestaurantDetails] = useMutation(STORE_RESTAURANT_QUERY)
+  const [haveBeenToRestaurantDetails] = useMutation(
+    HAVE_BEEN_TO_RESTAURANT_QUERY,
+  )
+
   const handleClick = () => {
     const getRestaurants = async () => {
       const restaurantsData = await fetchRestaurants()
@@ -140,28 +174,63 @@ const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
     getRestaurants()
   }
 
-  //   async function onSubmitStoreForm(value: {restaurant_id: string}) {
-  //     // let restaurant_id = value["restaurant_id"];
-  //     // let user_restaurant_data = {};
-  //     // sha256(session.user.email).then(async function (hash) {
-  //     //   user_restaurant_data["restaurant_id"] = restaurant_id;
-  //     //   user_restaurant_data["user_email"] = hash;
-  //     //   try {
-  //     //     storeRestaurantDetails({
-  //     //       variables: {
-  //     //         restaurantId: restaurant_id,
-  //     //         userEmail: hash,
-  //     //       },
-  //     //     });
-  //     //     const target = document.getElementById(
-  //     //       "store_restaurant" + restaurant_id
-  //     //     );
-  //     //     target.style.visibility = "hidden";
-  //     //   } catch (error) {
-  //     //     console.log(error);
-  //     //   }
-  //     // });
-  //  }
+  const onSubmitStoreForm: SubmitHandler<Inputs> = async (value) => {
+    let restaurant_id = value['restaurant_id']
+    interface DirectionArray {
+      [index: string]: string
+    }
+    let user_restaurant_data: DirectionArray = {}
+    // sha256(session.user.email).then(async function (hash) {
+    user_restaurant_data['restaurant_id'] = restaurant_id
+    user_restaurant_data['user_email'] = uid
+    try {
+      storeRestaurantDetails({
+        variables: {
+          restaurantId: restaurant_id,
+          userEmail: uid,
+        },
+      })
+      const target = document.getElementById('store_restaurant' + restaurant_id)
+      if (target) {
+        target.style.visibility = 'hidden'
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const onSubmitHaveBeenToForm: SubmitHandler<Inputs> = async (value) => {
+    let restaurant_id = value['restaurant_id']
+    interface DirectionArray {
+      [index: string]: string
+    }
+    let user_restaurant_data: DirectionArray = {}
+    // sha256(session.user.email).then(async function (hash) {
+    user_restaurant_data['restaurant_id'] = restaurant_id
+    user_restaurant_data['user_email'] = uid
+    try {
+      haveBeenToRestaurantDetails({
+        variables: {
+          restaurantId: restaurant_id,
+          userEmail: uid,
+        },
+      })
+      const target = document.getElementById('have_been_to_restaurant' + restaurant_id)
+      if (target) {
+        target.style.visibility = 'hidden'
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  if (loading) {
+    return <div>loading</div>
+  }
+
+  if (error) {
+    return <div>error</div>
+  }
 
   return (
     <>
@@ -182,18 +251,23 @@ const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
                   />
                 </ImageWrapper>
                 <Forms>
-                  {/* <form onSubmit={handleSubmit(onSubmitStoreForm)}>
+                  <form onSubmit={handleSubmit(onSubmitStoreForm)}>
                     <input
                       type="hidden"
-                      name="restaurant_store"
                       {...register('restaurant_id')}
+                      name="restaurant_store"
                     />
                     <button
                       type="submit"
-                      id={'store_restaurant' + recommendRestaurant.restaurant_id}
-                      className={styles.restarunt_store}
+                      id={
+                        'store_restaurant' + recommendRestaurant.restaurant_id
+                      }
+                      // className={styles.restarunt_store}
                       onClick={() => {
-                        setValue('restaurant_id', recommendRestaurant.restaurant_id)
+                        setValue(
+                          'restaurant_id',
+                          recommendRestaurant.restaurant_id,
+                        )
                       }}
                     >
                       保存する
@@ -202,24 +276,29 @@ const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
                   <form onSubmit={handleSubmit(onSubmitHaveBeenToForm)}>
                     <input
                       type="hidden"
-                      name={'restaurant_have_been_to'}
                       value={JSON.stringify(recommendRestaurant)}
-                      {...register('restaurant_have_been_to_id')}
+                      //restaurant_have_been_toになってたところ
+                      {...register('restaurant_id')}
+                      name={'restaurant_have_been_to'}
                     />
                     <button
                       type="submit"
-                      id={'have_been_to_restaurant' + recommendRestaurant.restaurant_id}
-                      className={styles.restarunt_store}
+                      id={
+                        'have_been_to_restaurant' +
+                        recommendRestaurant.restaurant_id
+                      }
+                      // className={styles.restarunt_store}
                       onClick={() => {
                         setValue(
-                          'restaurant_have_been_to_id',
+                          //restaurant_have_been_toになってたところ
+                          'restaurant_id',
                           recommendRestaurant.restaurant_id,
                         )
                       }}
                     >
                       行ったことある
                     </button>
-                  </form> */}
+                  </form>
                 </Forms>
 
                 {recommendRestaurant.restaurant_id != ids ? (
@@ -285,7 +364,6 @@ const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
       <Wrapper>
         {recommendRestaurants?.map((recommendRestaurant: Restaurant) => {
           const all_IDs = ids + ID.toString().replace(/,/g, '')
-          console.log('下の方', all_IDs)
           if (all_IDs.indexOf(recommendRestaurant.restaurant_id) == -1) {
             return (
               <div>
@@ -302,6 +380,57 @@ const Recommend: React.FC<{ history: BrowserHistory }> = (props) => {
                     />
                   </ImageWrapper>
                 </a>
+
+                <Forms>
+                  <form onSubmit={handleSubmit(onSubmitStoreForm)}>
+                    <input
+                      type="hidden"
+                      {...register('restaurant_id')}
+                      name="restaurant_store"
+                    />
+                    <button
+                      type="submit"
+                      id={
+                        'store_restaurant' + recommendRestaurant.restaurant_id
+                      }
+                      // className={styles.restarunt_store}
+                      onClick={() => {
+                        setValue(
+                          'restaurant_id',
+                          recommendRestaurant.restaurant_id,
+                        )
+                      }}
+                    >
+                      保存する
+                    </button>
+                  </form>
+                  <form onSubmit={handleSubmit(onSubmitHaveBeenToForm)}>
+                    <input
+                      type="hidden"
+                      value={JSON.stringify(recommendRestaurant)}
+                      //restaurant_have_been_toになってたところ
+                      {...register('restaurant_id')}
+                      name={'restaurant_have_been_to'}
+                    />
+                    <button
+                      type="submit"
+                      id={
+                        'have_been_to_restaurant' +
+                        recommendRestaurant.restaurant_id
+                      }
+                      // className={styles.restarunt_store}
+                      onClick={() => {
+                        setValue(
+                          //restaurant_have_been_toになってたところ
+                          'restaurant_id',
+                          recommendRestaurant.restaurant_id,
+                        )
+                      }}
+                    >
+                      行ったことある
+                    </button>
+                  </form>
+                </Forms>
                 <RecommendationDetails>
                   <RecommendationName>
                     <a

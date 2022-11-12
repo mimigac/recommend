@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { createBrowserHistory } from 'history'
 import { BrowserHistory } from 'history'
+import { ApolloProvider } from '@apollo/client'
+import client from 'apollo/apollo-client'
+import { AuthProvider } from 'context/AuthContext'
 import './App.css'
 import Recommend from 'Recommend'
 
@@ -11,14 +14,18 @@ const App: React.FC<{ history: BrowserHistory }> = ({
 }) => {
   //historyの渡し方が正しいかわからない
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/recommend/:ids"
-          element={<Recommend history={history} />}
-        />
-      </Routes>
-    </BrowserRouter>
+    <ApolloProvider client={client}>
+      <AuthProvider loading={false}>
+        <BrowserRouter>
+          <Routes>
+            <Route
+              path="/recommend/:ids"
+              element={<Recommend history={history} />}
+            />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ApolloProvider>
   )
 }
 
